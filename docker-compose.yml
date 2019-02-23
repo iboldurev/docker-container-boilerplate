@@ -1,0 +1,151 @@
+version: '3.2'
+
+networks:
+  public:
+    driver: bridge
+
+services:
+  app:
+    build: ./docker/app
+    image: docker-app
+    container_name: docker-app
+    restart: unless-stopped
+    depends_on:
+      - mysql
+      - neo4j
+      - redis
+      - elasticsearch
+    environment:
+      APP_ENV: local
+      CONTAINER_ROLE: app
+      LOG_CHANNEL: single
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_CONNECTION: mysql
+      DB_DATABASE: docker
+      DB_USERNAME: docker
+      DB_PASSWORD: secret
+      NEO4J_HOST: neo4j
+      NEO4J_PORT: 7474
+      NEO4J_USERNAME: "neo4j"
+      NEO4J_PASSWORD: "password"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      QUEUE_DRIVER: redis
+      BROADCAST_DRIVER: redis
+    volumes:
+      - ./src:/var/www
+    ports:
+      - 80:8081
+    networks:
+      - public
+
+  queue:
+    image: docker-app
+    container_name: docker-queue
+    restart: unless-stopped
+    depends_on:
+      - app
+      - mysql
+      - redis
+      - neo4j
+    volumes:
+      - ./src:/var/www
+    environment:
+      APP_ENV: local
+      CONTAINER_ROLE: queue
+      LOG_CHANNEL: single
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_CONNECTION: mysql
+      DB_DATABASE: docker
+      DB_USERNAME: docker
+      DB_PASSWORD: secret
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      QUEUE_DRIVER: redis
+      BROADCAST_DRIVER: redis
+    networks:
+      - public
+
+  scheduler:
+    image: docker-app
+    container_name: docker-scheduler
+    restart: unless-stopped
+    depends_on:
+      - app
+      - mysql
+      - redis
+      - neo4j
+    volumes:
+      - ./src:/var/www
+    environment:
+      APP_ENV: local
+      CONTAINER_ROLE: scheduler
+      LOG_CHANNEL: single
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_CONNECTION: mysql
+      DB_DATABASE: docker
+      DB_USERNAME: docker
+      DB_PASSWORD: secret
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      QUEUE_DRIVER: redis
+      BROADCAST_DRIVER: redis
+    networks:
+      - public
+
+  redis:
+    build: ./docker/redis
+    image: docker-redis
+    container_name: docker-redis
+    restart: unless-stopped
+    volumes:
+      - ./.data/redis:/usr/share/redis/data
+    ports:
+      - 6379:6379
+    networks:
+      - public
+
+  mysql:
+    build: ./docker/mysql
+    image: docker-mysql
+    container_name: docker-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: docker
+      MYSQL_USER: docker
+      MYSQL_PASSWORD: secret
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_ROOT_HOST: "%"
+    volumes:
+      - ./.data/mysql:/var/lib/mysql
+    ports:
+      - 3306:3306
+    networks:
+      - public
+
+  neo4j:
+    build: ./docker/neo4j
+    image: docker-neo4j
+    container_name: docker-neo4j
+    restart: unless-stopped
+    ports:
+      - 7474:7474
+    volumes:
+      - ./.data/neo4j:/var/lib/neo4j/data
+    networks:
+      - public
+
+  elasticsearch:
+    build: ./docker/elasticsearch
+    image: docker-elasticsearch
+    container_name: docker-elasticsearch
+    restart: unless-stopped
+    volumes:
+      - ./.data/elasticsearch:/usr/share/elasticsearch/data
+    ports:
+      - 9200:9200
+    networks:
+      - public
